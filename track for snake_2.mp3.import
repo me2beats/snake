@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/track for snake_2.mp3-75f4ee620d5ffe47d991a9b95dcfdee7.mp3str"
+
+[deps]
+
+source_file="res://track for snake_2.mp3"
+dest_files=[ "res://.import/track for snake_2.mp3-75f4ee620d5ffe47d991a9b95dcfdee7.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
