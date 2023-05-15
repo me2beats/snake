@@ -17,10 +17,12 @@ onready var game_end_sound: = $"../Audio/GameEnd"
 onready var score_label = $"../CanvasLayer/Score"
 onready var bonus_food_label = $"../CanvasLayer/BonusFood"
 
-var bonus_food_pos:Vector2
+var bonus_food_pos:=-Vector2.ONE
+var bonus_food_other_collision_pos:=-Vector2.ONE #hacky :(
 var bonus_food_icon_pos = Vector2(19, -3)
 var bonus_food_time_left = 0
 
+var nitro = false
 var speed_mult = 0.99
 
 var score = 0 setget set_score
@@ -33,7 +35,8 @@ enum Tiles{
 	BODY = 4,
 	HEAD = 5,
 	BONUS_FOOD1 = 6,
-	BONUS_FOOD2 = 7
+	BONUS_FOOD2 = 7,
+	EMPTY = 9 #hacky
 }
 
 func set_score(val):
@@ -74,20 +77,45 @@ func eat_bonus_food():
 	self.score+=10
 	eat_sound.play()
 	hide_bonus_food_controls()
-	set_cellv(bonus_food_pos, -1)
-#	spawn_food() 
+
+	if get_cellv(bonus_food_other_collision_pos) == Tiles.HEAD:
+		set_cellv(bonus_food_pos, -1)
+	else:
+		set_cellv(bonus_food_other_collision_pos, -1)
+
 
 
 func spawn_food():
 	var empty_cell = get_random_empty_cell()
 	set_cellv(empty_cell, Tiles.FOOD)
 
+func get_empty_cell_for_spawning_bonus_food(bonus_food_idx:int)->Vector2:
+	var empty_cell:= Vector2(-1,-1)
+	var empty_cells = get_empty_cells()
+	empty_cells.shuffle()
+	var is_bonus_food1 =  bonus_food_idx == Tiles.BONUS_FOOD1
+	for pos in empty_cells:
+		if is_bonus_food1:
+			if pos+Vector2(0,1) in empty_cells:
+				empty_cell = pos
+		else:
+			if pos+Vector2(1,0) in empty_cells:
+				empty_cell = pos
+	return empty_cell
+
+
 func spawn_bonus_food():
 
-	var empty_cell = get_random_empty_cell()
 	var food = [Tiles.BONUS_FOOD1, Tiles.BONUS_FOOD2][randi()%2]
+	var empty_cell = get_empty_cell_for_spawning_bonus_food(food)
+	if empty_cell == Vector2(-1,-1):
+		print("cant spawn bonus food: no empty cells")
+		return
+
 	bonus_food_pos = empty_cell
+	bonus_food_other_collision_pos = bonus_food_pos+Vector2(0,1) if  food == Tiles.BONUS_FOOD1 else bonus_food_pos+Vector2(1,0)
 	set_cellv(empty_cell, food)
+	set_cellv(bonus_food_other_collision_pos, Tiles.EMPTY) # add empty collision-like tile (hacky/ugly)
 	draw_bonus_food_icon(food)
 	bonus_food_label.text = str(20)
 	bonus_food_label.visible = true
@@ -151,6 +179,10 @@ func move():
 #					return # test immortal snake
 					game_over()
 					return
+				Tiles.FOOD:
+					eat_food()
+				Tiles.BONUS_FOOD1,Tiles.BONUS_FOOD2, Tiles.EMPTY:
+					eat_bonus_food()
 			move_body()
 
 
@@ -159,10 +191,11 @@ func move():
 			set_cellv(snake[-1], -1)
 			snake.pop_back()
 
-
 			set_cellv(oposite_border_pos, Tiles.HEAD, false, false, bool(dir.y))
 			set_cellv(snake[0], Tiles.BODY)
 			snake.push_front(oposite_border_pos)
+
+			rotate_tail()
 			return
 
 		Tiles.FOOD: # food
@@ -175,7 +208,7 @@ func move():
 		Tiles.TAIL,Tiles.BODY:
 #			return # test immortal snake
 			game_over()
-		Tiles.BONUS_FOOD1,Tiles.BONUS_FOOD2:
+		Tiles.BONUS_FOOD1,Tiles.BONUS_FOOD2, Tiles.EMPTY:
 			move_head()
 			set_cellv(snake[0], Tiles.BODY)
 			snake.push_front(new_head_pos)
@@ -192,12 +225,27 @@ func move():
 	snake.push_front(new_head_pos)
 	snake.pop_back()
 
+	rotate_tail()
+
+func rotate_tail():
+
+	var tail_dir = snake[-2]-snake[-1]
+	match tail_dir:
+		Vector2(-1,0):
+			set_cellv(snake[-1], Tiles.TAIL, true, true, true)
+		Vector2(0,1):
+			set_cellv(snake[-1], Tiles.TAIL, true, false, false)
+		Vector2(0,-1):
+			set_cellv(snake[-1], Tiles.TAIL, false, true, false)
+
+	
 
 func game_over():
 	music_sound.stop()
 	game_end_sound.play()
 	get_tree().paused = true
 	yield(game_end_sound,"finished")
+	yield(get_tree().create_timer(3),"timeout")
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
@@ -207,16 +255,26 @@ func _on_Timer_timeout():
 	move()
 	
 func _input(event):
-	if !(Input.is_action_just_pressed("ui_down") or Input.is_action_just_pressed("ui_up") or Input.is_action_just_pressed("ui_right") or Input.is_action_just_pressed("ui_left")): return
+	if Input.is_action_just_pressed("nitro"):
+		if not nitro:
+			timer.wait_time*=0.25
+			nitro = true
+	elif Input.is_action_just_released("nitro"):
+		if nitro:
+			timer.wait_time*=4.0
+			nitro = false
+
+	
+	if !(Input.is_action_just_pressed("down") or Input.is_action_just_pressed("up") or Input.is_action_just_pressed("right") or Input.is_action_just_pressed("left")): return
 	var new_dir:Vector2
 
-	if Input.is_action_just_pressed("ui_down"):
+	if Input.is_action_just_pressed("down"):
 		new_dir = Vector2(0,1)
-	elif Input.is_action_just_pressed("ui_up"):
+	elif Input.is_action_just_pressed("up"):
 		new_dir = Vector2(0,-1)
-	elif Input.is_action_just_pressed("ui_left"):
+	elif Input.is_action_just_pressed("left"):
 		new_dir = Vector2(-1,0)
-	elif Input.is_action_just_pressed("ui_right"):
+	elif Input.is_action_just_pressed("right"):
 		new_dir = Vector2(1,0)
 
 #	if new_dir == dir or new_dir ==-dir: return	
