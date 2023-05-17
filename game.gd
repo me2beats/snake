@@ -11,3 +11,6 @@ func _input(event):
 			paused_label.get_node("AnimationPlayer").play("blink")
 		else:
 			paused_label.get_node("AnimationPlayer").stop()
+
+
+

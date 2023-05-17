@@ -57,8 +57,6 @@ func remove_bonus_food_icon():
 func _ready():
 	randomize()
 
-	music_sound.play()
-
 	timer.start()
 	
 	OS.window_size = Vector2(1024, 600)
@@ -277,7 +275,10 @@ func _input(event):
 	elif Input.is_action_just_pressed("right"):
 		new_dir = Vector2(1,0)
 
-#	if new_dir == dir or new_dir ==-dir: return	
+	handle_dir(new_dir)
+
+
+func handle_dir(new_dir:Vector2):
 	if new_dir ==-dir: return	
 	dir = new_dir
 
@@ -285,3 +286,21 @@ func _input(event):
 	timer.stop()
 	timer.emit_signal("timeout")
 	timer.start()
+
+
+
+func _on_Up_button_down():
+	handle_dir(Vector2(0,-1))
+
+
+func _on_Down_button_down():
+	handle_dir(Vector2(0,1))
+
+
+func _on_Right_button_down():
+	handle_dir(Vector2(1,0))
+
+
+func _on_Left_button_down():
+	handle_dir(Vector2(-1,0))
+	
